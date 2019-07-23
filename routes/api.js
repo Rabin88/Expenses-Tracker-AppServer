@@ -80,7 +80,98 @@ router.post('/signup', async function(req, res, next) {
 		console.log(error)
 		res.status(400).json( {success: false, message: error});
 	}
-	});
+});
+
+//GET Total debit and credit amount
+router.get('/balance', async function(req, res, next) {
+	try {
+		const balance = await TransactonSchema.aggregate([
+			{ 
+				$match : {user_id:'5d282ff16cbfe7be5df95615'}
+			},
+			{
+				$group : {_id :null,
+				total:{ $sum: "$Debit_Amount" }, 
+				total1: { $sum: "$Credit_Amount"}, 
+				count_transaction: { $sum: 1 }},			 
+			}
+			]);
+		res.json(balance);
+	} catch (error) {
+		res.json( {message: error});
+	}
+});
+
+//GET Total Balance by subtracting total debit amount and credit amount
+router.get('/totalbalance', async function(req, res, next) {
+	try {
+		const totalbalance = await TransactonSchema.aggregate([
+			{ 
+				$match : {user_id:'5d282ff16cbfe7be5df95615'}
+			},
+			{
+				$group : {_id :null,
+				total_Debit:{ $sum: "$Debit_Amount" }, 
+				total_Credit: { $sum: "$Credit_Amount"}, 
+				count_transaction: { $sum: 1 }},			 
+			},
+			{ 
+				"$project":{
+				"balance": { "$subtract": ["$total_Debit", "$total_Credit"]}}
+			}
+		]);
+		res.json(totalbalance);
+	} catch (error) {
+		res.json( {message: error});
+	}
+});
+
+//GET for the Main Categories Transactions
+router.get('/categories', async function(req, res, next) {
+	try {
+		// Main Categories Transactions
+		const mainCategories = await TransactonSchema.aggregate(
+			[
+				{ 
+				$match : {user_id:'5d282ff16cbfe7be5df95615', 
+				Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")} }
+				},
+			   {
+				$group : {_id : {Categories: "$Categories"},
+				total: { $sum: "$Credit_Amount" }, 
+				count_transaction: { $sum: 1 }},			 
+			   }
+			]
+		)
+		res.json(mainCategories);
+	} catch (error) {
+		res.json( {message: error});
+	}
+});
+
+//GET the list of sub-categories (Merchant) with the Credit_Amount spent
+router.get('/categories/merchant', async function(req, res, next) {
+	try {
+		
+		//Query for list of merchant with amount without selecting date and user_id
+		//const post = await TransactonSchema.find( { Categories: 'Food' }, {_id:0, Merchant: 1,Credit_Amount:1}  ); 
+		
+		//user_id: '5d282ff16cbfe7be5df95615',
+		//user_id: '5d28c7b62b46872daf20cd56'
+		//Date: {$gte:"2019-01-02T12:21:55.000+00:00", $lt:"2019-02-05T12:21:55.000+00:00" }
+		
+		// sub-categories (Merchant) with the Credit_Amount spent
+		const merchant = await TransactonSchema.find(
+			{user_id:'5d28c7b62b46872daf20cd56', Categories: 'Groceries', 
+			Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")}},
+			{_id:0, Merchant: 1,Credit_Amount:1});
+
+		res.json(merchant);
+	} catch (error) {
+		res.json( {message: error});
+	}
+});
+
 
 //DELETE Post
 router.delete('/:Id', async function(req, res, next) {
