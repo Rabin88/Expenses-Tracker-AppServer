@@ -1,6 +1,7 @@
 var express = require('express');
 var router = express.Router();
 const jwt = require ('jsonwebtoken');
+const mongoose = require('mongoose');
 //const mongoose = require('mongoose');
 //const loginAuthCheck = require ('../controller/authCheck')
 
@@ -39,7 +40,8 @@ router.post('/login', async function(req, res, next) {
 								return res.json(
 									{
 										message : "Valid username and password",
-										token: token
+										token: token,
+										_id: result._id
 									}
 								);
 				
@@ -91,8 +93,8 @@ router.get('/balance', async function(req, res, next) {
 			},
 			{
 				$group : {_id :null,
-				total:{ $sum: "$Debit_Amount" }, 
-				total1: { $sum: "$Credit_Amount"}, 
+				Expense: { $sum: "$Credit_Amount"}, 
+				Income:{ $sum: "$Debit_Amount" }, 
 				count_transaction: { $sum: 1 }},			 
 			}
 			]);
@@ -125,22 +127,26 @@ router.get('/totalbalance', async function(req, res, next) {
 		res.json( {message: error});
 	}
 });
+//POST route for the Main Categories Transactions
+router.post('/categories', async function(req, res, next) {
+	let startDate = req.body.start_date;
+	let FinishDate = req.body.finish_date;
 
-//GET for the Main Categories Transactions
-router.get('/categories', async function(req, res, next) {
+	console.log(`Validating - startDate: ${startDate}, FinishDate: ${FinishDate}`);
 	try {
 		// Main Categories Transactions
 		const mainCategories = await TransactonSchema.aggregate(
 			[
 				{ 
 				$match : {user_id:'5d282ff16cbfe7be5df95615', 
-				Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")} }
+				Date:{$gte:new Date(startDate), $lt: new Date(FinishDate)} }
 				},
 			   {
 				$group : {_id : {Categories: "$Categories"},
 				total: { $sum: "$Credit_Amount" }, 
 				count_transaction: { $sum: 1 }},			 
-			   }
+			   },
+			   { "$sort": { "total": -1 } }
 			]
 		)
 		res.json(mainCategories);
@@ -149,22 +155,92 @@ router.get('/categories', async function(req, res, next) {
 	}
 });
 
+//GET for the Main Categories Transactions
+
+// router.get('/categories', async function(req, res, next) {
+// 	try {
+// 		// Main Categories Transactions
+// 		const mainCategories = await TransactonSchema.aggregate(
+// 			[
+// 				{ 
+// 				$match : {user_id:'5d282ff16cbfe7be5df95615', 
+// 				Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")} }
+// 				},
+// 			   {
+// 				$group : {_id : {Categories: "$Categories"},
+// 				total: { $sum: "$Credit_Amount" }, 
+// 				count_transaction: { $sum: 1 }},			 
+// 			   }
+// 			]
+// 		)
+// 		res.json(mainCategories);
+// 	} catch (error) {
+// 		res.json( {message: error});
+// 	}
+// });
+
 //GET the list of sub-categories (Merchant) with the Credit_Amount spent
-router.get('/categories/merchant', async function(req, res, next) {
+router.get('/categories/merchant/food', async function(req, res, next) {
 	try {
-		
-		//Query for list of merchant with amount without selecting date and user_id
-		//const post = await TransactonSchema.find( { Categories: 'Food' }, {_id:0, Merchant: 1,Credit_Amount:1}  ); 
-		
-		//user_id: '5d282ff16cbfe7be5df95615',
-		//user_id: '5d28c7b62b46872daf20cd56'
-		//Date: {$gte:"2019-01-02T12:21:55.000+00:00", $lt:"2019-02-05T12:21:55.000+00:00" }
-		
-		// sub-categories (Merchant) with the Credit_Amount spent
-		const merchant = await TransactonSchema.find(
-			{user_id:'5d28c7b62b46872daf20cd56', Categories: 'Groceries', 
-			Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")}},
-			{_id:0, Merchant: 1,Credit_Amount:1});
+		const merchant = await TransactonSchema.aggregate(
+			[
+				{ 
+				$match : {user_id:'5d282ff16cbfe7be5df95615', Categories: 'Food',
+				Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")}}
+				},
+			   {
+				$group : {_id : {Merchant: "$Merchant"},
+				total: { $sum: "$Credit_Amount" }, 
+				count_transaction: { $sum: 1 }},			 
+			   },
+			   { "$sort": { "total": -1 } }
+			]
+		)
+
+		res.json(merchant);
+	} catch (error) {
+		res.json( {message: error});
+	}
+});
+//GET the list of sub-categories (Merchant) with the Credit_Amount spent
+router.get('/categories/merchant/groceries', async function(req, res, next) {
+	try {
+		const merchant = await TransactonSchema.aggregate(
+			[
+				{ 
+				$match : {user_id:'5d282ff16cbfe7be5df95615', Categories: 'Groceries',
+				Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")}}
+				},
+			   {
+				$group : {_id : {Date: "$Date", Merchant: "$Merchant"},
+				total: { $sum: "$Credit_Amount" }, 
+				count_transaction: { $sum: 1 }},			 
+			   },
+			   { "$sort": { "total": -1 } }
+			]
+		)
+		res.json(merchant);
+	} catch (error) {
+		res.json( {message: error});
+	}
+});
+//GET the list of sub-categories (Merchant) with the Credit_Amount spent
+router.get('/categories/merchant/shopping', async function(req, res, next) {
+	try {
+		const merchant = await TransactonSchema.aggregate(
+			[
+				{ 
+				$match : {user_id:'5d282ff16cbfe7be5df95615', Categories: 'Shopping',
+				Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")}}
+				},
+			   {
+				$group : {_id : {Merchant: "$Merchant"},
+				total: { $sum: "$Credit_Amount" }, 
+				count_transaction: { $sum: 1 }},			 
+			   },
+			   { "$sort": { "total": -1 } }
+			]
+		)
 
 		res.json(merchant);
 	} catch (error) {
@@ -172,6 +248,105 @@ router.get('/categories/merchant', async function(req, res, next) {
 	}
 });
 
+//GET the list of sub-categories (Merchant) with the Credit_Amount spent
+router.get('/categories/merchant/travel', async function(req, res, next) {
+	try {
+		const merchant = await TransactonSchema.aggregate(
+			[
+				{ 
+				$match : {user_id:'5d282ff16cbfe7be5df95615', Categories: 'Travel',
+				Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")}}
+				},
+			   {
+				$group : {_id : {Merchant: "$Merchant"},
+				total: { $sum: "$Credit_Amount" }, 
+				count_transaction: { $sum: 1 }},			 
+			   },
+			   { "$sort": { "total": -1 } }
+			]
+		)
+
+		res.json(merchant);
+	} catch (error) {
+		res.json( {message: error});
+	}
+});
+//GET the list of sub-categories (Merchant) with the Credit_Amount spent
+router.get('/categories/merchant/housing', async function(req, res, next) {
+	try {
+		const merchant = await TransactonSchema.aggregate(
+			[
+				{ 
+				$match : {user_id:'5d282ff16cbfe7be5df95615', Categories: 'Housing',
+				Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")}}
+				},
+			   {
+				$group : {_id : {Merchant: "$Merchant"},
+				total: { $sum: "$Credit_Amount" }, 
+				count_transaction: { $sum: 1 }},			 
+			   },
+			   { "$sort": { "total": -1 } }
+			]
+		)
+
+		res.json(merchant);
+	} catch (error) {
+		res.json( {message: error});
+	}
+});
+
+//GET the list of sub-categories (Merchant) with the Credit_Amount spent
+router.get('/categories/merchant/bills', async function(req, res, next) {
+	try {
+		const merchant = await TransactonSchema.aggregate(
+			[
+				{ 
+				$match : {user_id:'5d282ff16cbfe7be5df95615', Categories: 'Bills',
+				Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")}}
+				},
+			   {
+				$group : {_id : {Merchant: "$Merchant"},
+				total: { $sum: "$Credit_Amount" }, 
+				count_transaction: { $sum: 1 }},			 
+			   },
+			   { "$sort": { "total": -1 } }
+			]
+		)
+
+		res.json(merchant);
+	} catch (error) {
+		res.json( {message: error});
+	}
+});
+
+//GET the list of sub-categories (Merchant) with the Credit_Amount spent
+router.get('/categories/merchant/others', async function(req, res, next) {
+	try {
+		// const merchant = await TransactonSchema.find(
+		// 	{user_id:'5d282ff16cbfe7be5df95615', Categories: 'Others', 
+		// 	Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")}},
+		// 	{_id:0, Merchant: 1,Credit_Amount:1});
+
+		const merchant = await TransactonSchema.aggregate(
+			[
+				{ 
+				$match : {user_id:'5d282ff16cbfe7be5df95615', Categories: 'Others',
+				Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")}}
+				},
+			   {
+				$group : {_id : {Merchant: "$Merchant"},
+				total: { $sum: "$Credit_Amount" }, 
+				count_transaction: { $sum: 1 }},			 
+			   },
+			   { "$sort": { "total": -1 } }
+			]
+		)
+
+		res.json(merchant);
+	} catch (error) {
+		res.json( {message: error});
+	}
+});
 
 //DELETE Post
 router.delete('/:Id', async function(req, res, next) {
