@@ -8,6 +8,8 @@ const authentication = require ('../controller/authCheck')
 const UserModel = require('../controller/userSchema');
 const BudgetModel = require('../controller/budgetSchema');
 const TransactonSchema = require('../controller/transactionSchema');
+const nodemailer = require("nodemailer");
+
 
   //GET route for login 
 router.post('/login', async function(req, res, next) {
@@ -63,7 +65,48 @@ router.post('/login', async function(req, res, next) {
 });
 
 	// POST HTTP request for signup Page
+// router.post('/signup', async function(req, res, next) {
+
+// 	const post = new UserModel({
+// 		//_id: mongoose.Schema.Types.ObjectId(),
+// 		Username: req.body.Username,
+// 		FirstName : req.body.FirstName,
+// 		LastName: req.body.LastName,
+// 		Password: req.body.Password,
+// 		Email: req.body.Email
+// 	})
+// 	try {
+// 		const findUser = await UserModel.findOne({Username: req.body.Username});
+// 		if(findUser) {
+// 			res.json({error: "Username is already in use"})
+// 			return;
+// 		} else {
+// 		const postSave = await post.save();
+// 		res.status(200).json({success: true, message : "Successfully Registered"});
+// 		}
+// 	} catch (error) {
+// 		console.log(error)
+// 		res.status(400).json( {success: false, message: error});
+// 	}
+// });
+
 router.post('/signup', async function(req, res, next) {
+
+	 // create reusable transporter object using the Google SMTP transport
+	 let transporter = nodemailer.createTransport({
+		service: 'gmail',
+		auth: {
+		  user: 'rabinapp11@gmail.com', 
+		  pass: 'Finance$1' 
+		}
+	  });
+
+	let EmailDetails = {
+		from: "rabinapp11@gmail.com ", // sender address
+		to: `${req.body.Email}`, // list of receivers
+		subject: "Confirmation Email", // Subject line
+		text: `Hello ${req.body.FirstName}! Thank you for regestering with the Expense Tracker App. You can now login to your account.`, // plain text body
+	}
 
 	const post = new UserModel({
 		//_id: mongoose.Schema.Types.ObjectId(),
@@ -77,16 +120,29 @@ router.post('/signup', async function(req, res, next) {
 		const findUser = await UserModel.findOne({Username: req.body.Username});
 		if(findUser) {
 			res.json({error: "Username is already in use"})
-			return;
-		} else {
-		const postSave = await post.save();
-		res.status(200).json({success: true, message : "Successfully Registered"});
+		} 
+		const confirmEmail = await UserModel.findOne({Email: req.body.Email});
+		if(confirmEmail) {
+			res.json({emailError: "Email already exist"})
+		}
+		else {
+			const postSave = await post.save();
+			res.status(200).json({success: true, message : "Successfully Registered"});
+			
+			await transporter.sendMail(EmailDetails, function (err, data){
+				if(err){
+					console.log("Email Declined: ", err);
+				} else {
+					console.log("Email sent successfully!!!");
+				}
+			})
 		}
 	} catch (error) {
-		console.log(error)
+		//console.log(error)
 		res.status(400).json( {success: false, message: error});
 	}
 });
+
 	// POST request of category amount for the current month, which is required for set budget
 router.post('/budget', authentication,async function(req, res, next) {
 
@@ -121,8 +177,8 @@ router.get('/totalbalance', authentication, async function(req, res, next) {
 	let user_id = req.query.user_id;
 	try {
 		const totalbalance = await TransactonSchema.aggregate([
-			{ 
-				$match : {user_id: user_id},
+			{ 	// test UserID: "5d4767d3b768cda660a354ba"
+				$match : {user_id:user_id},
 				//Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")}
 			},
 			{
@@ -133,7 +189,7 @@ router.get('/totalbalance', authentication, async function(req, res, next) {
 			},
 			{ 
 				"$project":{
-				"balance": { "$subtract": ["$total_Debit", "$total_Credit"]}}
+				balance: { "$subtract": ["$total_Debit", "$total_Credit"]}}
 			}
 		]);
 		res.json(totalbalance);
@@ -235,15 +291,14 @@ router.get('/categories/merchant', authentication, async function(req, res, next
 				$match : {user_id:UserID, Categories: category,
 				Date:{$gte:new Date(startDate), $lt:new Date(FinishDate)}}
 				},
-			   {
-				$group : {_id : {Merchant: "$Merchant"},
+			   {    //_id : {Merchant: "$Merchant"} if we need to add two merchant together
+				$group : {_id : {Date: "$Date", Merchant: "$Merchant"},
 				total: { $sum: "$Credit_Amount" }, 
 				count_transaction: { $sum: 1 }},			 
 			   },
 			   { "$sort": { "total": -1 } }
 			]
 		)
-
 		res.json(merchant);
 	} catch (error) {
 		res.json( {message: error});
@@ -263,7 +318,7 @@ router.get('/categories/merchant', authentication, async function(req, res, next
 // 				total: { $sum: "$Credit_Amount" }, 
 // 				count_transaction: { $sum: 1 }},			 
 // 			   },
-// 			   { "$sort": { "total": -1 } }
+// 			   { "$sort": { "total": -1 }}
 // 			]
 // 		)
 // 		res.json(merchant);
@@ -272,6 +327,65 @@ router.get('/categories/merchant', authentication, async function(req, res, next
 // 	}
 // });
 
+//GET monthly expenses and income
+router.get('/monthlyBudget', async function(req, res, next) {
+	try {
+		const merchant = await TransactonSchema.aggregate(
+			[
+				{ 
+				$match : {user_id:"5d4767d3b768cda660a354ba"}
+				//Date:{$gte:new Date(startDate), $lt:new Date(FinishDate)}}
+				},
+			   {
+				$group : {_id : {"$month": "$Date"},
+				expenses: { $sum: "$Credit_Amount" },
+				income: { $sum: "$Debit_Amount" },
+				count_transaction: { $sum: 1}},
+			   },
+				{"$sort": {"_id": 1}}		 
+			]
+		)
+		res.json(merchant);
+	} catch (error) {
+		res.json( {message: error});
+	}
+});
+
+router.get('/monthlyBudget/sum', async function(req, res, next) {
+	try {
+		const merchant = await TransactonSchema.aggregate(
+			[
+				{ 
+				$match : {user_id:"5d4767d3b768cda660a354ba"}
+				//Date:{$gte:new Date(startDate), $lt:new Date(FinishDate)}}
+				},
+			   {
+				$group : {_id : {"$month": "$Date"},
+				expenses: { $sum: "$Credit_Amount" },
+				income: { $sum: "$Debit_Amount" },
+				count_transaction: { $sum: 1}}		 
+			   },
+			   {
+				$group : {_id : null,
+				totalexpenses: { $sum: "$expenses" },
+				totalincome: { $sum: "$income" },
+				count_transaction: { $sum: 1},
+				}		 
+			   },
+			   { 
+				"$project":{
+				totalexpense: { $sum: "$totalexpenses"},
+				totalincome: { $sum: "$totalincome"},
+				averageExpense: {$divide: ["$totalexpenses", "$count_transaction"]},
+				averageIncome: {$divide: ["$totalincome", "$count_transaction"]}}
+				}
+			]
+		)
+		res.json(merchant);
+	} catch (error) {
+		res.json( {message: error});
+	}
+});
 
 //DELETE Post
 // router.delete('/:Id', async function(req, res, next) {
@@ -292,5 +406,9 @@ router.get('/categories/merchant', authentication, async function(req, res, next
 //     res.json( {message: error});
 //   }
 // });
+
+router.get('/test', async function(req, res, next) {
+	res.json( {message: "this is a test message from server!!"});
+});
 
 module.exports = router;

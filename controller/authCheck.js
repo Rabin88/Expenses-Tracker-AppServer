@@ -4,13 +4,13 @@ const jwt = require ('jsonwebtoken');
 var verifyToken =  (req, res, next) => {
 	try{
 		const token = req.headers.authorization.split(" ")[1];
-		console.log('token: ',token)
+		//console.log('token: ',token)
 		const decode = jwt.verify(token, "secretkey");
 		//req.body = decode
-		console.log('jwt correct');
+		//console.log('jwt correct');
 		next();
 	} catch (err){
-		console.log('error in jwt');
+		//console.log('error in jwt');
 		return res.json({
 			message: 'Authentication Failed'
 		});
