@@ -328,12 +328,13 @@ router.get('/categories/merchant', authentication, async function(req, res, next
 // });
 
 //GET monthly expenses and income
-router.get('/monthlyBudget', async function(req, res, next) {
+router.get('/monthlyBudget', authentication, async function(req, res, next) {
 	try {
+		let user_id = req.query.user_id;
 		const merchant = await TransactonSchema.aggregate(
 			[
 				{ 
-				$match : {user_id:"5d4767d3b768cda660a354ba"}
+				$match : {user_id: user_id}
 				//Date:{$gte:new Date(startDate), $lt:new Date(FinishDate)}}
 				},
 			   {
