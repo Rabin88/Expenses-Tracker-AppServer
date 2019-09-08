@@ -1,3 +1,13 @@
+/**
+ * This is a main api routes that communicates with client and database through RESTful API. 
+ * The client will send the request to the server and sever will process the request to database
+ * and send the response back to the client. This class have all necessary API routes used in building
+ * Expense Tracker application. On a successful login, server will generate a unique token to each user
+ * using 'jsonwebtoken' library. Moreover after successful registration, confirmation email will be sent
+ * to a user.
+ */
+
+
 var express = require('express');
 var router = express.Router();
 const jwt = require ('jsonwebtoken');
@@ -11,24 +21,19 @@ const TransactonSchema = require('../controller/transactionSchema');
 const nodemailer = require("nodemailer");
 
 
-  //GET route for login 
+  //GET request for login into the system
 router.post('/login', async function(req, res, next) {
 
-	//console.log(req.body);
 	let username = req.body.user_name;
 	let password = req.body.user_password;
-
-	//console.log('pre login');
 
 	var user = {
 		/**
 		 * This function is responsible for checking user credentials.
 		 */
 		checkUserCredential: async (username, password) => {
-			console.log(`Validating user - username: ${username}, password: ${password}`);
-
 			try{
-				
+				//Find username in the database
 				var result = await UserModel.findOne({Username: username});
 				
 				if(!result){
@@ -39,7 +44,7 @@ router.post('/login', async function(req, res, next) {
 					return res.json({message :"Password doesn't match"});
 				
 				}else {
-					//return "Valid username and password";
+					// Generate jwt token
 					const token = jwt.sign({
 						Username: username,
 					},
@@ -64,32 +69,7 @@ router.post('/login', async function(req, res, next) {
 	let isValid = await user.checkUserCredential(username, password);
 });
 
-	// POST HTTP request for signup Page
-// router.post('/signup', async function(req, res, next) {
-
-// 	const post = new UserModel({
-// 		//_id: mongoose.Schema.Types.ObjectId(),
-// 		Username: req.body.Username,
-// 		FirstName : req.body.FirstName,
-// 		LastName: req.body.LastName,
-// 		Password: req.body.Password,
-// 		Email: req.body.Email
-// 	})
-// 	try {
-// 		const findUser = await UserModel.findOne({Username: req.body.Username});
-// 		if(findUser) {
-// 			res.json({error: "Username is already in use"})
-// 			return;
-// 		} else {
-// 		const postSave = await post.save();
-// 		res.status(200).json({success: true, message : "Successfully Registered"});
-// 		}
-// 	} catch (error) {
-// 		console.log(error)
-// 		res.status(400).json( {success: false, message: error});
-// 	}
-// });
-
+	// POST request for signup 
 router.post('/signup', async function(req, res, next) {
 
 	 // create reusable transporter object using the Google SMTP transport
@@ -105,9 +85,9 @@ router.post('/signup', async function(req, res, next) {
 		from: "rabinapp11@gmail.com ", // sender address
 		to: `${req.body.Email}`, // list of receivers
 		subject: "Confirmation Email", // Subject line
-		text: `Hello ${req.body.FirstName}! Thank you for regestering with the Expense Tracker App. You can now login to your account.`, // plain text body
+		text: `Hello ${req.body.FirstName}! Thank you for registering with the Expense Tracker App. You can now login into your account.`,
 	}
-
+	
 	const post = new UserModel({
 		//_id: mongoose.Schema.Types.ObjectId(),
 		Username: req.body.Username,
@@ -117,15 +97,19 @@ router.post('/signup', async function(req, res, next) {
 		Email: req.body.Email
 	})
 	try {
+		// Check if username exist in the database and send response to client
 		const findUser = await UserModel.findOne({Username: req.body.Username});
 		if(findUser) {
 			res.json({error: "Username is already in use"})
 		} 
+		// Check if exist exist in the database and send response to client
 		const confirmEmail = await UserModel.findOne({Email: req.body.Email});
 		if(confirmEmail) {
 			res.json({emailError: "Email already exist"})
 		}
 		else {
+			// Save users information, if all fields in signup form is filled correctly. 
+			// Then, send a confirmation email to a user.
 			const postSave = await post.save();
 			res.status(200).json({success: true, message : "Successfully Registered"});
 			
@@ -159,6 +143,7 @@ router.post('/budget', authentication,async function(req, res, next) {
 		res.status(400).json( {success: false, message: error});
 	}
 });
+
 	// GET request for set Budget for saved data
 router.get('/budget',authentication, async function(req, res, next) {
 
@@ -172,14 +157,14 @@ router.get('/budget',authentication, async function(req, res, next) {
 	}
 });
 
-//GET Total Balance by subtracting total debit amount and credit amount
+//GET  resquest for Total Balance 
 router.get('/totalbalance', authentication, async function(req, res, next) {
 	let user_id = req.query.user_id;
 	try {
+		// Query to calculate total balance by subtracting total credit amount from debit amount
 		const totalbalance = await TransactonSchema.aggregate([
-			{ 	// test UserID: "5d4767d3b768cda660a354ba"
+			{ 	
 				$match : {user_id:user_id},
-				//Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")}
 			},
 			{
 				$group : {_id :null,
@@ -197,12 +182,14 @@ router.get('/totalbalance', authentication, async function(req, res, next) {
 		res.json( {message: error});
 	}
 });
- //GET Total expense and income amount of the current month
+
+ //GET request for Total expense and income amount of the current month
 router.post('/expenses', authentication, async function(req, res, next) {
 	let startDate = req.body.start_date;
 	let FinishDate = req.body.finish_date;
 	let UserID = req.body.userid
 	try {
+		
 		const balance = await TransactonSchema.aggregate([
 			{ 
 				$match : {user_id: UserID,
@@ -221,26 +208,8 @@ router.post('/expenses', authentication, async function(req, res, next) {
 	}
 });
 
-//GET Total debit and credit amount
-// router.get('/balance', async function(req, res, next) {
-// 	try {
-// 		const balance = await TransactonSchema.aggregate([
-// 			{ 
-// 				$match : {user_id:'5d4767d3b768cda660a354ba'}
-// 			},
-// 			{
-// 				$group : {_id :null,
-// 				Expense: { $sum: "$Credit_Amount"}, 
-// 				Income:{ $sum: "$Debit_Amount" }, 
-// 				count_transaction: { $sum: 1 }},			 
-// 			}
-// 			]);
-// 		res.json(balance);
-// 	} catch (error) {
-// 		res.json( {message: error});
-// 	}
-// });
 
+// POST request for categories to get the transaction categories data
 router.post('/categories', authentication, async function(req, res, next) {
 	let startDate = req.body.start_date;
 	let FinishDate = req.body.finish_date;
@@ -249,14 +218,11 @@ router.post('/categories', authentication, async function(req, res, next) {
 	console.log(`Validating - startDate: ${startDate}, FinishDate: ${FinishDate},`);
 	console.log(req.body);
 	try {
-		// Main Categories Transactions
 		const mainCategories =  await TransactonSchema.aggregate(
 			[
 				{ 
-				// test UserID: "5d4767d3b768cda660a354ba"
 				$match : {user_id: UserID, 
 				 Date:{$gte:new Date(startDate), $lt:new Date(FinishDate)}
-				// Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")}
 				}
 				},
 			   {
@@ -274,15 +240,12 @@ router.post('/categories', authentication, async function(req, res, next) {
 });
 
 
-//GET the list of sub-categories (Merchant) with the Credit_Amount spent
+//GET request for the list of Transactions (Merchant) with the Credit_Amount spent
 router.get('/categories/merchant', authentication, async function(req, res, next) {
 	let startDate = req.query.sdate;
 	let FinishDate = req.query.fdate;
 	let UserID = req.query.uid;
 	let category = req.query.category;
-
-	//console.log(req.query);
-	//console.log('query-log: ',startDate, FinishDate, UserID, category);
 
 	try {
 		const merchant = await TransactonSchema.aggregate(
@@ -304,30 +267,9 @@ router.get('/categories/merchant', authentication, async function(req, res, next
 		res.json( {message: error});
 	}
 });
-//GET the list of sub-categories (Merchant) with the Credit_Amount spent
-// router.get('/categories/merchant/groceries', async function(req, res, next) {
-// 	try {
-// 		const merchant = await TransactonSchema.aggregate(
-// 			[
-// 				{ 
-// 				$match : {user_id:'5d4767d3b768cda660a354ba', Categories: 'Groceries',
-// 				Date:{$gte:new Date("2019-01-01T12:21:55.000+00:00"), $lt:new Date("2019-02-05T12:21:55.000+00:00")}}
-// 				},
-// 			   {
-// 				$group : {_id : {Date: "$Date", Merchant: "$Merchant"},
-// 				total: { $sum: "$Credit_Amount" }, 
-// 				count_transaction: { $sum: 1 }},			 
-// 			   },
-// 			   { "$sort": { "total": -1 }}
-// 			]
-// 		)
-// 		res.json(merchant);
-// 	} catch (error) {
-// 		res.json( {message: error});
-// 	}
-// });
 
-//GET monthly expenses and income
+
+//GET request for monthly expenses and income in Budget Forecast screen
 router.get('/monthlyBudget', authentication, async function(req, res, next) {
 	try {
 		let user_id = req.query.user_id;
@@ -352,6 +294,7 @@ router.get('/monthlyBudget', authentication, async function(req, res, next) {
 	}
 });
 
+//GET request for total sum of monthly expenses
 router.get('/monthlyBudget/sum', async function(req, res, next) {
 	try {
 		const merchant = await TransactonSchema.aggregate(
@@ -388,26 +331,7 @@ router.get('/monthlyBudget/sum', async function(req, res, next) {
 	}
 });
 
-//DELETE Post
-// router.delete('/:Id', async function(req, res, next) {
-// 	try {
-// 		const removePost = await PostSubmit.remove({_id: req.params.Id});
-// 		res.json(removePost);
-// 	} catch (error) {
-// 		res.json( {message: error});
-// 	}
-// });
-
-// //GET 
-// router.get('/submit/:Id', async function(req, res, next) {
-//   try {
-//     const id = await PostSubmit.findById(req.params.Id);
-//     res.json(id);
-//   } catch (error) {
-//     res.json( {message: error});
-//   }
-// });
-
+// Testing get request
 router.get('/test', async function(req, res, next) {
 	res.json( {message: "this is a test message from server!!"});
 });

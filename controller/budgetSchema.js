@@ -1,3 +1,7 @@
+/**
+ * This is a budget schema
+ */
+
 const mongoose = require('mongoose');
 
 var budget = new  mongoose.Schema({

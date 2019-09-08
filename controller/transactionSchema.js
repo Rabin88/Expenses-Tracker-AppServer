@@ -1,5 +1,9 @@
+/**
+ * This is a tranascation Schema.
+ */
 const mongoose = require('mongoose');
 
+// Tansaction schema
 var transactions = new  mongoose.Schema({
 	user_id: {
 		type:mongoose.Schema.Types.ObjectId,
