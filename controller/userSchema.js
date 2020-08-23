@@ -9,10 +9,11 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
+require('dotenv').config();
 
 // connecting to MongoDB
-let mongoUser = 'rabin';
-let mongoPass = encodeURIComponent('Thames@09');
+let mongoUser = process.env.Username;
+let mongoPass = encodeURIComponent(process.env.Password);
 let connectionStr = `mongodb+srv://${mongoUser}:${mongoPass}@cluster0-yazdi.mongodb.net/FinanceApp?retryWrites=true&w=majority`; 
 mongoose.connect(connectionStr, {useNewUrlParser: true});
 

@@ -12,6 +12,7 @@ var express = require('express');
 var router = express.Router();
 const jwt = require ('jsonwebtoken');
 const mongoose = require('mongoose');
+require('dotenv').config();
 
 const authentication = require ('../controller/authCheck')
 
@@ -77,7 +78,7 @@ router.post('/signup', async function(req, res, next) {
 		service: 'gmail',
 		auth: {
 		  user: 'rabinapp11@gmail.com', 
-		  pass: 'Finance$1' 
+		  pass: process.env.EmailPassword
 		}
 	  });
 
